@@ -1,0 +1,105 @@
+---
+
+######### LESD Controlled code #########
+#      Written by: Joshua McNab        #
+#         Date: 01/14/2025             #
+########################################
+
+# Playbook Kickoff, executed on localhost as application hooks, gather facts off 
+- name: Build inventory of VMs and check snapshots
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "vmw_vars.yml"
+  tasks:
+ #This task will refresh the report file we are building and create the headers   
+    - name: Creating empty snapshot_report.txt file
+      shell: echo 'Guest Hostname, Snapshot Name, Snapshot Description, Vcenter Name' > {{ report_path }}
+      run_once: true
+      delegate_to: localhost
+    
+# This task builds a list of systems from the VMWare connection 
+    - name: Gather list of all VMs
+      community.vmware.vmware_vm_info:
+        validate_certs: no
+      register: vm_list
+
+# This task sorts the data above into defined variables 
+    - name: Build inventory list
+      set_fact:
+        vm_inventory: "{{ vm_inventory | default([]) + [item] }}"
+      loop: "{{ vm_list.virtual_machines }}"
+      loop_control:
+        label: "{{ item.uuid }}"
+
+######### Block Loop - Iterates snapshot details #########
+    - name: Check snapshots for each VM
+      block:
+        - name: Find Guest's Folder using UUID
+          community.vmware.vmware_guest_find:
+            uuid: "{{ item.uuid | lower }}"
+            validate_certs: no
+          delegate_to: localhost
+          register: vm_folder
+          loop: "{{ vm_list.virtual_machines }}"
+          loop_control:
+            label: "{{ item.guest_name }}"
+
+        - name: Gather snapshot facts about the virtual machine
+          community.vmware.vmware_guest_snapshot_info:
+            uuid: "{{ item.uuid | lower }}"
+            datacenter: "{{ vm_folder.results[0].folders[0] }}"
+            validate_certs: no
+          delegate_to: localhost
+          register: snap
+          loop: "{{ vm_list.virtual_machines }}"
+          loop_control:
+            label: "{{ item.guest_name }}"
+
+        - name: Collect snapshot details
+          set_fact:
+            old_snap: true
+            snap_name: "{{ item.guest_snapshots.snapshots[0]['name'] | default('') | string | replace(',', ' ') }}"
+            snap_description: "{{ item.guest_snapshots.snapshots[0]['description'] | default('No description') | string | replace(',', ' ') }}"
+          when: item.guest_snapshots.snapshots | default([]) | length > 0
+          loop: "{{ snap.results }}"
+          loop_control:
+            label: "{{ item.item.guest_name }}"
+
+        - name: debug vars snap_name
+          debug:
+            msg: Snap Name - "{{snap_name}}"
+          loop: "{{ snap.results }}"
+          loop_control:
+            label: "{{ item.item.guest_name }}"
+
+        - name: debug vars snap_description
+          debug:
+            msg: Snap Name - "{{snap_name}}"
+          loop: "{{ snap.results }}"
+          loop_control:
+            label: "{{ item.item.guest_name }}"
+            
+        - name: Write host to file
+          shell: echo "{{ item.item.guest_name }}, {{ snap_name }}, {{ snap_description }}, {{ vcenter_hostname }}" >> {{ report_path }}
+          when: item.guest_snapshots.snapshots | default([]) | length > 0
+          delegate_to: localhost
+          loop: "{{ snap.results }}"
+          loop_control:
+            label: "{{ item.item.guest_name }}"
+########## End of Block Loop  #########
+
+ The following task is responsible for sending the email. Variables defined in attached var file 
+    - name: Send email with snapshot information
+      mail:
+        host: "{{ smtp_host }}"
+        port: "{{ smtp_port }}"
+        to: "{{ email_target }}"
+        username: "{{ smtp_user }}"
+        password: "{{ smtp_pass }}"
+        from: "{{ email_sender }}"
+        subject: "{{ email_subject }}"
+        body: "{{ email_body }}"
+        attach:
+          - "{{ report_path }}"
+      delegate_to: localhost
