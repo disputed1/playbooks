@@ -1,0 +1,13 @@
+report_path: snapshot_report.csv
+vcenter_hostname: 
+#vcenter 
+
+## Mail module vars
+smtp_user: 
+smtp_pass: "{{ password_survey }}"
+smtp_host: 
+smtp_port: 
+email_subject: VMware Snapshot Report 
+email_body: Ansible Generated Report Attached
+email_target: "{{ email_survey }}"
+email_sender: ansible@lesd.k12.or.us
