@@ -65,20 +65,6 @@
           loop: "{{ snap.results }}"
           loop_control:
             label: "{{ item.item.guest_name }}"
-
-        - name: debug vars snap_name
-          debug:
-            msg: Snap Name - "{{snap_name}}"
-          loop: "{{ snap.results }}"
-          loop_control:
-            label: "{{ item.item.guest_name }}"
-
-        - name: debug vars snap_description
-          debug:
-            msg: Snap Name - "{{snap_name}}"
-          loop: "{{ snap.results }}"
-          loop_control:
-            label: "{{ item.item.guest_name }}"
             
         - name: Write host to file
           shell: echo "{{ item.item.guest_name }}, {{ snap_name }}, {{ snap_description }}, {{ vcenter_hostname }}" >> {{ report_path }}
