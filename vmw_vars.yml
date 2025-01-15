@@ -10,4 +10,4 @@ smtp_port:
 email_subject: VMware Snapshot Report 
 email_body: Ansible Generated Report Attached
 email_target: "{{ email_survey }}"
-email_sender: ansible@lesd.k12.or.us
+email_sender: ansible@example.com
