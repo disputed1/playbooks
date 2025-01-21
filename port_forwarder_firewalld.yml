@@ -1,0 +1,45 @@
+
+---
+
+- hosts: all
+  vars_prompt:
+    - name: updown
+      prompt: "Would you like this script to enable or disable this rule?\n1- enable\n2- disable\n"
+      private: no
+
+    - name: internalip
+      prompt: What is IP Address of the interal system you would like to map (10.8.x.x)?
+      private: no
+
+    - name: portnumber
+      prompt: "What is the port you would like to map with protocol? i.e. : 22000"
+      private: no
+
+    - name: proto
+      prompt: "What is the protocol you would like to assign? (tcp/udp)"
+      private: no
+
+  tasks:
+    - set_fact: app=enabled
+      when: ( updown == "1" )
+
+    - set_fact: app=disabled
+      when: ( updown == "2" )
+
+    - name: Firewalld port forwarding
+      firewalld:
+        rich_rule: rule family=ipv4 forward-port port="{{ portnumber }}" protocol="{{ proto }}" to-port="{{ portnumber }}" to-addr="{{ internalip }}"
+        zone: public
+        permanent: yes
+        immediate: yes
+        state: "{{ app }}"
+      become: yes
+
+    - name: firewalld port mapping
+      firewalld:
+        zone: public
+        port: "{{ portnumber }}/{{ proto }}"
+        permanent: true
+        state: "{{ app }}"
+        immediate: yes
+      become: yes
